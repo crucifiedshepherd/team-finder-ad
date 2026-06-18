@@ -1,0 +1,19 @@
+{% if page_obj.paginator.num_pages > 1 %}
+<nav class="pagination" aria-label="Постраничная навигация">
+    {% if page_obj.has_previous %}
+        <a class="pagination-link" href="?{% if active_skill %}skill={{ active_skill }}&amp;{% endif %}page={{ page_obj.previous_page_number }}">Назад</a>
+    {% endif %}
+
+    {% for number in page_obj.paginator.page_range %}
+        {% if number == page_obj.number %}
+            <span class="pagination-link active">{{ number }}</span>
+        {% else %}
+            <a class="pagination-link" href="?{% if active_skill %}skill={{ active_skill }}&amp;{% endif %}page={{ number }}">{{ number }}</a>
+        {% endif %}
+    {% endfor %}
+
+    {% if page_obj.has_next %}
+        <a class="pagination-link" href="?{% if active_skill %}skill={{ active_skill }}&amp;{% endif %}page={{ page_obj.next_page_number }}">Далее</a>
+    {% endif %}
+</nav>
+{% endif %}

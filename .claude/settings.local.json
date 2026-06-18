@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -b cookies.txt -c cookies.txt http://localhost:8000/projects/create-project/)",
+      "Bash(curl -s \"http://localhost:8000/projects/skills/?q=Py\")",
+      "Bash(curl -s -b cookies.txt -c cookies.txt http://localhost:8000/users/register/)",
+      "Bash(curl -s -b cookies2.txt -c cookies2.txt http://localhost:8000/users/edit-profile/)",
+      "Bash(rm -f cookies3.txt)",
+      "Bash(curl -s -c cookies3.txt http://localhost:8000/users/login/)",
+      "Bash(curl -s -b cookies3.txt -c cookies3.txt http://localhost:8000/users/login/)",
+      "Bash(python -c ' *)",
+      "Bash(python3 -m flake8 --version)",
+      "Bash(python3 -m flake8 .)",
+      "Bash(docker info *)",
+      "Bash(brew list *)",
+      "Read(//opt/homebrew/var/**)",
+      "Read(//usr/local/**)",
+      "Bash(brew services *)",
+      "Bash(pg_isready -h localhost -p 5432)",
+      "Bash(pg_isready -h localhost -p 5436)",
+      "Bash(psql postgres *)"
+    ]
+  }
+}
