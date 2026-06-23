@@ -4,7 +4,7 @@ TeamFinder — Django-приложение для поиска проектов 
 
 ## Автор
 
-Максим — [thewolfedm@gmail.com](mailto:thewolfedm@gmail.com)
+Владислав — [grayscalestocks@gmail.com](https://github.com/crucifiedshepherd)
 
 ## Техно-стек
 
