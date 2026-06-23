@@ -6,19 +6,19 @@ app_name = "projects"
 
 urlpatterns = [
     path("list/", views.project_board, name="list"),
-    path("create-project/", views.project_studio, name="create"),
+    path("create-project/", views.create_project, name="create"),
     path("skills/", views.skill_suggestions, name="skill_suggestions"),
-    path("<int:pk>/", views.project_page, name="detail"),
-    path("<int:pk>/edit/", views.project_studio, name="edit"),
-    path("<int:pk>/complete/", views.finish_project, name="complete"),
+    path("<int:project_pk>/", views.project_page, name="detail"),
+    path("<int:project_pk>/edit/", views.edit_project, name="edit"),
+    path("<int:project_pk>/complete/", views.finish_project, name="complete"),
     path(
-        "<int:pk>/toggle-participate/",
+        "<int:project_pk>/toggle-participate/",
         views.toggle_my_participation,
         name="toggle_participate",
     ),
-    path("<int:pk>/skills/add/", views.attach_project_skill, name="skill_add"),
+    path("<int:project_pk>/skills/add/", views.attach_project_skill, name="skill_add"),
     path(
-        "<int:pk>/skills/<int:skill_id>/remove/",
+        "<int:project_pk>/skills/<int:skill_pk>/remove/",
         views.detach_project_skill,
         name="skill_remove",
     ),

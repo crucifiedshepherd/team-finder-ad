@@ -11,5 +11,5 @@ urlpatterns = [
     path("list/", views.member_directory, name="list"),
     path("edit-profile/", views.edit_my_profile, name="edit_profile"),
     path("change-password/", views.update_password, name="change_password"),
-    path("<int:pk>/", views.member_card, name="detail"),
+    path("<int:user_pk>/", views.member_card, name="detail"),
 ]

@@ -1,15 +1,33 @@
 from pathlib import Path
+
 from decouple import config
+
+from team_finder.constants import (
+    ALLOWED_HOSTS_DEFAULT,
+    DEFAULT_SECRET_KEY,
+)
+from team_finder.constants import LANGUAGE_CODE as DEFAULT_LANGUAGE_CODE
+from team_finder.constants import (
+    POSTGRES_DB_DEFAULT,
+    POSTGRES_HOST_DEFAULT,
+    POSTGRES_PASSWORD_DEFAULT,
+    POSTGRES_PORT_DEFAULT,
+    POSTGRES_USER_DEFAULT,
+    TEMPLATES_DIR,
+)
+from team_finder.constants import TIME_ZONE as DEFAULT_TIME_ZONE
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# TODO: Создать и заполнить .env, ориентируясь на .env_example
-
-SECRET_KEY = config("DJANGO_SECRET_KEY")
+SECRET_KEY = config("DJANGO_SECRET_KEY", default=DEFAULT_SECRET_KEY)
 
 DEBUG = config("DJANGO_DEBUG", default=False, cast=bool)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = config(
+    "DJANGO_ALLOWED_HOSTS",
+    default=ALLOWED_HOSTS_DEFAULT,
+    cast=lambda value: [host.strip() for host in value.split(",") if host.strip()],
+)
 
 
 # Application definition
@@ -40,7 +58,7 @@ ROOT_URLCONF = "team_finder.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / f"templates_var{config('TASK_VERSION', default='1')}"],
+        "DIRS": [BASE_DIR / TEMPLATES_DIR],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -61,11 +79,11 @@ WSGI_APPLICATION = "team_finder.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": config("POSTGRES_DB"),
-        "USER": config("POSTGRES_USER"),
-        "PASSWORD": config("POSTGRES_PASSWORD"),
-        "HOST": config("POSTGRES_HOST", default="localhost"),
-        "PORT": config("POSTGRES_PORT", default=5432, cast=int),
+        "NAME": config("POSTGRES_DB", default=POSTGRES_DB_DEFAULT),
+        "USER": config("POSTGRES_USER", default=POSTGRES_USER_DEFAULT),
+        "PASSWORD": config("POSTGRES_PASSWORD", default=POSTGRES_PASSWORD_DEFAULT),
+        "HOST": config("POSTGRES_HOST", default=POSTGRES_HOST_DEFAULT),
+        "PORT": config("POSTGRES_PORT", default=POSTGRES_PORT_DEFAULT, cast=int),
     }
 }
 
@@ -95,9 +113,9 @@ if not DEBUG:
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = "en-us"
+LANGUAGE_CODE = DEFAULT_LANGUAGE_CODE
 
-TIME_ZONE = "UTC"
+TIME_ZONE = DEFAULT_TIME_ZONE
 
 USE_I18N = True
 

@@ -1,15 +1,25 @@
 import io
 import random
 
-from django.core.files.base import ContentFile
-from django.db import models
 from django.contrib.auth.models import (
     AbstractBaseUser,
     BaseUserManager,
     PermissionsMixin,
 )
-
+from django.core.files.base import ContentFile
+from django.db import models
 from PIL import Image, ImageDraw, ImageFont
+
+from team_finder.constants import (
+    AVATAR_FONT_SIZE,
+    AVATAR_PALETTE,
+    AVATAR_SIZE,
+    AVATAR_TEXT_COLOR,
+    PHONE_MAX_LENGTH,
+    USER_ABOUT_MAX_LENGTH,
+    USER_NAME_MAX_LENGTH,
+    USER_SURNAME_MAX_LENGTH,
+)
 
 
 class UserManager(BaseUserManager):
@@ -17,10 +27,14 @@ class UserManager(BaseUserManager):
 
     def _create_user(self, email, name, surname, phone, password, **extra_fields):
         if not email:
-            raise ValueError("The given email must be set")
+            raise ValueError("Email обязателен.")
         email = self.normalize_email(email)
         user = self.model(
-            email=email, name=name, surname=surname, phone=phone or None, **extra_fields
+            email=email,
+            name=name,
+            surname=surname,
+            phone=phone or None,
+            **extra_fields,
         )
         user.set_password(password)
         user.save(using=self._db)
@@ -35,27 +49,39 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         if extra_fields.get("is_staff") is not True:
-            raise ValueError("Superuser must have is_staff=True.")
+            raise ValueError("У суперпользователя is_staff должен быть True.")
         if extra_fields.get("is_superuser") is not True:
-            raise ValueError("Superuser must have is_superuser=True.")
+            raise ValueError("У суперпользователя is_superuser должен быть True.")
         return self._create_user(email, name, surname, phone, password, **extra_fields)
 
 
 class User(AbstractBaseUser, PermissionsMixin):
-    email = models.EmailField(unique=True)
-    name = models.CharField(max_length=124)
-    surname = models.CharField(max_length=124)
-    avatar = models.ImageField(upload_to="avatars/", blank=True)
-    phone = models.CharField(max_length=12, unique=True, blank=True, null=True)
-    github_url = models.URLField(blank=True)
-    about = models.TextField(blank=True, max_length=256)
-    is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)
+    email = models.EmailField("Электронная почта", unique=True)
+    name = models.CharField("Имя", max_length=USER_NAME_MAX_LENGTH)
+    surname = models.CharField("Фамилия", max_length=USER_SURNAME_MAX_LENGTH)
+    avatar = models.ImageField("Аватар", upload_to="avatars/", blank=True)
+    phone = models.CharField(
+        "Телефон",
+        max_length=PHONE_MAX_LENGTH,
+        unique=True,
+        blank=True,
+        null=True,
+    )
+    github_url = models.URLField("Ссылка на GitHub", blank=True)
+    about = models.TextField("О себе", blank=True, max_length=USER_ABOUT_MAX_LENGTH)
+    created_at = models.DateTimeField("Дата регистрации", auto_now_add=True)
+    is_active = models.BooleanField("Активен", default=True)
+    is_staff = models.BooleanField("Персонал", default=False)
 
     objects = UserManager()
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["name", "surname"]
+
+    class Meta:
+        ordering = ("-created_at",)
+        verbose_name = "Пользователь"
+        verbose_name_plural = "Пользователи"
 
     def __str__(self):
         return f"{self.surname} {self.name} <{self.email}>"
@@ -65,33 +91,25 @@ class User(AbstractBaseUser, PermissionsMixin):
             try:
                 self._generate_avatar()
             except Exception:
-                # avatar generation should not block saving
                 pass
         super().save(*args, **kwargs)
 
     def _generate_avatar(self):
-        """Generate a simple avatar with first letter on colored background."""
         letter = (self.name or "?")[0].upper()
-        size = (200, 200)
-        palette = [
-            (52, 152, 219),
-            (46, 204, 113),
-            (155, 89, 182),
-            (241, 196, 15),
-            (26, 188, 156),
-            (230, 126, 34),
-        ]
-        bg = random.choice(palette)
-        img = Image.new("RGB", size, bg)
+        bg = random.choice(AVATAR_PALETTE)
+        img = Image.new("RGB", AVATAR_SIZE, bg)
         draw = ImageDraw.Draw(img)
         try:
-            font = ImageFont.truetype("DejaVuSans-Bold.ttf", 100)
+            font = ImageFont.truetype("DejaVuSans-Bold.ttf", AVATAR_FONT_SIZE)
         except Exception:
             font = ImageFont.load_default()
         left, top, right, bottom = draw.textbbox((0, 0), letter, font=font)
-        w, h = right - left, bottom - top
-        position = ((size[0] - w) / 2 - left, (size[1] - h) / 2 - top)
-        draw.text(position, letter, fill=(255, 255, 255), font=font)
+        width, height = right - left, bottom - top
+        position = (
+            (AVATAR_SIZE[0] - width) / 2 - left,
+            (AVATAR_SIZE[1] - height) / 2 - top,
+        )
+        draw.text(position, letter, fill=AVATAR_TEXT_COLOR, font=font)
         buffer = io.BytesIO()
         img.save(buffer, format="PNG")
         buffer.seek(0)

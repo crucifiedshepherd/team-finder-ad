@@ -1,19 +1,11 @@
 from django import forms
 
-from users.forms import validate_github_url
+from team_finder.forms import GithubUrlCleanMixin
 
 from .models import Project
 
 
-class ProjectForm(forms.ModelForm):
+class ProjectForm(GithubUrlCleanMixin, forms.ModelForm):
     class Meta:
         model = Project
         fields = ("name", "description", "github_url", "status")
-        widgets = {"description": forms.Textarea(attrs={"rows": 5})}
-
-    def clean_github_url(self):
-        github_url = self.cleaned_data.get("github_url")
-        if not github_url:
-            return github_url
-        validate_github_url(github_url)
-        return github_url

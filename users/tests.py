@@ -1,6 +1,5 @@
-from django.urls import reverse
-
 import pytest
+from django.urls import reverse
 
 from .models import User
 
@@ -242,7 +241,7 @@ class TestMemberDirectory:
         )
 
         list_response = client.get(reverse("users:list"))
-        detail_response = client.get(reverse("users:detail", kwargs={"pk": user.pk}))
+        detail_response = client.get(reverse("users:detail", kwargs={"user_pk": user.pk}))
 
         assert list_response.status_code == 200
         assert detail_response.status_code == 200

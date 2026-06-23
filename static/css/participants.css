@@ -116,6 +116,7 @@
     text-decoration: underline;
     color: #666;
 }
+<<<<<<< HEAD
 
 .pagination {
     display: flex;
@@ -150,3 +151,5 @@
     border-color: #333;
     color: #fff;
 }
+=======
+>>>>>>> 3e7712d1879d216aff31522963f1eb52800930d9

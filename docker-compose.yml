@@ -5,7 +5,11 @@ services:
       - .env
     container_name: teamfinder_db
     ports:
+<<<<<<< HEAD
       - "5436:5432"
+=======
+      - "5432:5432"
+>>>>>>> 3e7712d1879d216aff31522963f1eb52800930d9
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: always

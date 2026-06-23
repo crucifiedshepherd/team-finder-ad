@@ -17,11 +17,11 @@ class UserAdmin(DjangoUserAdmin):
     fieldsets = (
         (None, {"fields": ("email", "password")}),
         (
-            "Personal info",
+            "Личные данные",
             {"fields": ("name", "surname", "avatar", "phone", "github_url", "about")},
         ),
         (
-            "Permissions",
+            "Права доступа",
             {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")},
         ),
     )
@@ -30,7 +30,15 @@ class UserAdmin(DjangoUserAdmin):
             None,
             {
                 "classes": ("wide",),
-                "fields": ("email", "name", "surname", "phone", "password1", "password2"),
+                "fields": (
+                    "email",
+                    "name",
+                    "surname",
+                    "phone",
+                    "github_url",
+                    "password1",
+                    "password2",
+                ),
             },
         ),
     )

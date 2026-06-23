@@ -1,13 +1,13 @@
 import json
 from datetime import timedelta
 
+import pytest
 from django.urls import reverse
 from django.utils import timezone
 
-import pytest
+from users.models import User
 
 from .models import Project, Skill
-from users.models import User
 
 
 @pytest.fixture
@@ -58,9 +58,7 @@ class TestProjectBoard:
     def test_projects_sorted_newest_first(self, client, user):
         older = Project.objects.create(name="Старый", owner=user)
         newer = Project.objects.create(name="Новый", owner=user)
-        Project.objects.filter(pk=older.pk).update(
-            created_at=timezone.now() - timedelta(days=1)
-        )
+        Project.objects.filter(pk=older.pk).update(created_at=timezone.now() - timedelta(days=1))
 
         response = client.get(reverse("projects:list"))
 
@@ -71,7 +69,7 @@ class TestProjectBoard:
 @pytest.mark.django_db
 class TestProjectDetail:
     def test_project_detail_renders(self, client, project):
-        response = client.get(reverse("projects:detail", kwargs={"pk": project.pk}))
+        response = client.get(reverse("projects:detail", kwargs={"project_pk": project.pk}))
 
         assert response.status_code == 200
         assert project.name in response.content.decode()
@@ -107,7 +105,7 @@ class TestProjectStudio:
         client.force_login(user)
 
         response = client.post(
-            reverse("projects:edit", kwargs={"pk": project.pk}),
+            reverse("projects:edit", kwargs={"project_pk": project.pk}),
             {
                 "name": "Обновлённое имя",
                 "description": project.description,
@@ -123,7 +121,7 @@ class TestProjectStudio:
     def test_other_user_cannot_edit_project(self, client, project, other_user):
         client.force_login(other_user)
 
-        response = client.get(reverse("projects:edit", kwargs={"pk": project.pk}))
+        response = client.get(reverse("projects:edit", kwargs={"project_pk": project.pk}))
 
         assert response.status_code == 404
 
@@ -149,7 +147,7 @@ class TestProjectStudio:
 class TestParticipation:
     def test_toggle_participation_adds_and_removes_user(self, client, project, other_user):
         client.force_login(other_user)
-        url = reverse("projects:toggle_participate", kwargs={"pk": project.pk})
+        url = reverse("projects:toggle_participate", kwargs={"project_pk": project.pk})
 
         first_response = client.post(url)
         assert first_response.status_code == 200
@@ -157,7 +155,7 @@ class TestParticipation:
         assert project.participants.filter(pk=other_user.pk).exists()
 
         second_response = client.post(url)
-        assert json.loads(second_response.content)["participant"] is False
+        assert not json.loads(second_response.content)["participant"]
         assert not project.participants.filter(pk=other_user.pk).exists()
 
 
@@ -166,7 +164,7 @@ class TestFinishProject:
     def test_owner_can_complete_open_project(self, client, project, user):
         client.force_login(user)
 
-        response = client.post(reverse("projects:complete", kwargs={"pk": project.pk}))
+        response = client.post(reverse("projects:complete", kwargs={"project_pk": project.pk}))
 
         project.refresh_from_db()
         assert response.status_code == 200
@@ -175,7 +173,7 @@ class TestFinishProject:
     def test_non_owner_cannot_complete_project(self, client, project, other_user):
         client.force_login(other_user)
 
-        response = client.post(reverse("projects:complete", kwargs={"pk": project.pk}))
+        response = client.post(reverse("projects:complete", kwargs={"project_pk": project.pk}))
 
         project.refresh_from_db()
         assert response.status_code == 400
@@ -186,7 +184,7 @@ class TestFinishProject:
         project.save(update_fields=["status"])
         client.force_login(user)
 
-        response = client.post(reverse("projects:complete", kwargs={"pk": project.pk}))
+        response = client.post(reverse("projects:complete", kwargs={"project_pk": project.pk}))
 
         assert response.status_code == 400
 
@@ -211,22 +209,22 @@ class TestProjectSkills:
         client.force_login(user)
 
         response = client.post(
-            reverse("projects:skill_add", kwargs={"pk": project.pk}),
-            data=json.dumps({"skill_id": skill.id}),
+            reverse("projects:skill_add", kwargs={"project_pk": project.pk}),
+            data=json.dumps({"skill_id": skill.pk}),
             content_type="application/json",
         )
 
         payload = json.loads(response.content)
         assert response.status_code == 200
         assert payload["added"] is True
-        assert payload["created"] is False
+        assert not payload["created"]
         assert project.skills.filter(pk=skill.pk).exists()
 
     def test_owner_can_add_new_skill_by_name(self, client, project, user):
         client.force_login(user)
 
         response = client.post(
-            reverse("projects:skill_add", kwargs={"pk": project.pk}),
+            reverse("projects:skill_add", kwargs={"project_pk": project.pk}),
             data=json.dumps({"name": "Kubernetes"}),
             content_type="application/json",
         )
@@ -242,13 +240,13 @@ class TestProjectSkills:
         client.force_login(user)
 
         response = client.post(
-            reverse("projects:skill_add", kwargs={"pk": project.pk}),
-            data=json.dumps({"skill_id": skill.id}),
+            reverse("projects:skill_add", kwargs={"project_pk": project.pk}),
+            data=json.dumps({"skill_id": skill.pk}),
             content_type="application/json",
         )
 
         payload = json.loads(response.content)
-        assert payload["added"] is False
+        assert not payload["added"]
         assert project.skills.filter(pk=skill.pk).count() == 1
 
     def test_non_owner_cannot_add_skill(self, client, project, other_user):
@@ -256,8 +254,8 @@ class TestProjectSkills:
         client.force_login(other_user)
 
         response = client.post(
-            reverse("projects:skill_add", kwargs={"pk": project.pk}),
-            data=json.dumps({"skill_id": skill.id}),
+            reverse("projects:skill_add", kwargs={"project_pk": project.pk}),
+            data=json.dumps({"skill_id": skill.pk}),
             content_type="application/json",
         )
 
@@ -269,7 +267,10 @@ class TestProjectSkills:
         client.force_login(user)
 
         response = client.post(
-            reverse("projects:skill_remove", kwargs={"pk": project.pk, "skill_id": skill.id})
+            reverse(
+                "projects:skill_remove",
+                kwargs={"project_pk": project.pk, "skill_pk": skill.pk},
+            )
         )
 
         assert response.status_code == 200

@@ -1,26 +1,24 @@
 import json
 
 from django.contrib.auth.decorators import login_required
-from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
+from team_finder.constants import HTTP_BAD_REQUEST, PROJECTS_PER_PAGE, SUGGESTIONS_LIMIT
+from team_finder.utils import get_page_obj
+
 from .forms import ProjectForm
 from .models import Project, Skill
 
-PROJECTS_PER_PAGE = 12
-SUGGESTIONS_LIMIT = 10
-
 
 def project_board(request):
-    projects = Project.objects.select_related("owner").order_by("-created_at")
+    projects = Project.objects.select_related("owner")
     active_skill = request.GET.get("skill")
     if active_skill:
         projects = projects.filter(skills__name=active_skill)
 
-    paginator = Paginator(projects, PROJECTS_PER_PAGE)
-    page_obj = paginator.get_page(request.GET.get("page"))
+    page_obj = get_page_obj(request, projects, PROJECTS_PER_PAGE)
 
     return render(
         request,
@@ -28,46 +26,63 @@ def project_board(request):
         {
             "projects": page_obj,
             "page_obj": page_obj,
-            "all_skills": Skill.objects.order_by("name"),
+            "all_skills": Skill.objects.all(),
             "active_skill": active_skill,
         },
     )
 
 
-def project_page(request, pk):
-    project = get_object_or_404(Project, pk=pk)
+def project_page(request, project_pk):
+    project = get_object_or_404(Project, pk=project_pk)
     return render(request, "projects/project-details.html", {"project": project})
 
 
 @login_required
-def project_studio(request, pk=None):
-    is_edit = pk is not None
-    project = None
-    if is_edit:
-        project = get_object_or_404(Project, pk=pk, owner=request.user)
+def create_project(request):
+    form = ProjectForm(request.POST or None)
+    if not form.is_valid():
+        return render(
+            request,
+            "projects/create-project.html",
+            {"form": form, "is_edit": False},
+        )
 
-    if request.method == "POST":
-        form = ProjectForm(request.POST, instance=project)
-        if form.is_valid():
-            project = form.save(commit=False)
-            if not is_edit:
-                project.owner = request.user
-            project.save()
-            if not is_edit:
-                project.participants.add(request.user)
-            return redirect("projects:detail", pk=project.pk)
-    else:
-        form = ProjectForm(instance=project)
+    project = form.save(commit=False)
+    project.owner = request.user
+    project.save()
+    project.participants.add(request.user)
+    return redirect("projects:detail", project_pk=project.pk)
 
-    return render(request, "projects/create-project.html", {"form": form, "is_edit": is_edit})
+
+@login_required
+def edit_project(request, project_pk):
+    project = get_object_or_404(Project, pk=project_pk, owner=request.user)
+    form = ProjectForm(request.POST or None, instance=project)
+    if not form.is_valid():
+        return render(
+            request,
+            "projects/create-project.html",
+            {"form": form, "is_edit": True},
+        )
+
+    project = form.save()
+    return redirect("projects:detail", project_pk=project.pk)
 
 
 @login_required
 @require_POST
-def finish_project(request, pk):
-    project = get_object_or_404(Project, pk=pk)
-    if project.owner_id != request.user.id or project.status != Project.STATUS_OPEN:
-        return JsonResponse({"status": "error"}, status=400)
+def finish_project(request, project_pk):
+    project = get_object_or_404(Project, pk=project_pk)
+    if project.owner != request.user:
+        return JsonResponse(
+            {"status": "error", "error": "Завершить проект может только автор."},
+            status=HTTP_BAD_REQUEST,
+        )
+    if project.status != Project.STATUS_OPEN:
+        return JsonResponse(
+            {"status": "error", "error": "Проект уже закрыт."},
+            status=HTTP_BAD_REQUEST,
+        )
 
     project.status = Project.STATUS_CLOSED
     project.save(update_fields=["status"])
@@ -76,22 +91,21 @@ def finish_project(request, pk):
 
 @login_required
 @require_POST
-def toggle_my_participation(request, pk):
-    project = get_object_or_404(Project, pk=pk)
-    if project.participants.filter(pk=request.user.pk).exists():
+def toggle_my_participation(request, project_pk):
+    project = get_object_or_404(Project, pk=project_pk)
+    participant = project.participants.filter(pk=request.user.pk).exists()
+    if participant:
         project.participants.remove(request.user)
-        participant = False
     else:
         project.participants.add(request.user)
-        participant = True
 
-    return JsonResponse({"status": "ok", "participant": participant})
+    return JsonResponse({"status": "ok", "participant": not participant})
 
 
 @require_GET
 def skill_suggestions(request):
     query = request.GET.get("q", "").strip()
-    skills = Skill.objects.order_by("name")
+    skills = Skill.objects.all()
     if query:
         skills = skills.filter(name__istartswith=query)
     skills = list(skills.values("id", "name")[:SUGGESTIONS_LIMIT])
@@ -100,8 +114,8 @@ def skill_suggestions(request):
 
 @login_required
 @require_POST
-def attach_project_skill(request, pk):
-    project = get_object_or_404(Project, pk=pk, owner=request.user)
+def attach_project_skill(request, project_pk):
+    project = get_object_or_404(Project, pk=project_pk, owner=request.user)
 
     try:
         payload = json.loads(request.body)
@@ -109,7 +123,10 @@ def attach_project_skill(request, pk):
         payload = {}
 
     skill_id = payload.get("skill_id")
-    name = (payload.get("name") or "").strip()
+    name = payload.get("name", "")
+    if name is None:
+        name = ""
+    name = name.strip()
 
     if skill_id:
         skill = get_object_or_404(Skill, pk=skill_id)
@@ -117,7 +134,10 @@ def attach_project_skill(request, pk):
     elif name:
         skill, created = Skill.objects.get_or_create(name=name)
     else:
-        return JsonResponse({"error": "skill_id or name is required"}, status=400)
+        return JsonResponse(
+            {"error": "Укажите идентификатор или название навыка."},
+            status=HTTP_BAD_REQUEST,
+        )
 
     added = not project.skills.filter(pk=skill.pk).exists()
     if added:
@@ -125,8 +145,8 @@ def attach_project_skill(request, pk):
 
     return JsonResponse(
         {
-            "skill_id": skill.id,
-            "id": skill.id,
+            "skill_id": skill.pk,
+            "id": skill.pk,
             "name": skill.name,
             "created": created,
             "added": added,
@@ -136,8 +156,8 @@ def attach_project_skill(request, pk):
 
 @login_required
 @require_POST
-def detach_project_skill(request, pk, skill_id):
-    project = get_object_or_404(Project, pk=pk, owner=request.user)
-    skill = get_object_or_404(Skill, pk=skill_id, projects=project)
+def detach_project_skill(request, project_pk, skill_pk):
+    project = get_object_or_404(Project, pk=project_pk, owner=request.user)
+    skill = get_object_or_404(Skill, pk=skill_pk, projects=project)
     project.skills.remove(skill)
     return JsonResponse({"status": "ok"})
